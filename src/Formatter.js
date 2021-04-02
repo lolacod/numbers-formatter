@@ -1,4 +1,12 @@
-import React from 'react'
+import React from 'react';
+import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import ToggleButtonGroup from 'react-bootstrap/ToggleButtonGroup';
+import ButtonGroup from 'react-bootstrap/ButtonGroup';
+import ToggleButton from 'react-bootstrap/ToggleButton';
+import InputGroup from 'react-bootstrap/InputGroup';
+
 
 class Formatter extends React.Component {
   constructor(props) {
@@ -11,19 +19,40 @@ class Formatter extends React.Component {
     var formatted = formatText(event.target.value);
     this.setState({ formattedText: formatted });
   }
-
+  
   render() {
     return (
-      <div>
-        <label>Input Text</label>
+      <Container>
+        <Row>
+          <Col>
+            <label>Your text goes here:</label>
+          </Col>
+        </Row>
+        <Row>
+          <Col>
+            
+            <div>
+              <textarea rows="15" cols="60" onChange={this.handleInputTextChange} />
+            </div>
+          </Col>
+          <Col>
+            <ToggleButtonGroup name="formatter" type="radio" vertical="true" size="sm">
+            <ToggleButton type="radio" name="formatter" value="humanReadable" variant="outline-success">
+              Human Readable
+            </ToggleButton>
+            <br/>
+            <ToggleButton type="radio" name="formatter" value="wCommas" variant="outline-success">
+              With Commas
+            </ToggleButton>
+          </ToggleButtonGroup> 
+          </Col>
+        </Row>
+        <br/>
+        <label>Same text with formatted numbers:</label>
         <div>
-          <textarea rows="20" cols="50" onChange={this.handleInputTextChange} />
+          <textarea rows="15" cols="60" value={this.state.formattedText} />
         </div>
-        <label>Formatted Text</label>
-        <div>
-          <textarea rows="20" cols="50" value={this.state.formattedText} />
-        </div>
-      </div>
+      </Container>
     )
   }
 }
@@ -34,40 +63,55 @@ function isDigit(char) {
   return digits.includes(char);
 }
 
+function isWordSeparating(char) {
+  const separators = [' ', '\n']
+  return separators.includes(char);
+}
+
+
 function formatText(input) {
-  // 1 - Not a number
-  // 2 - number
-  // 3 - number with decimal point, no need to format after decimal point.
-  // 4 - number with dash (-) in it, so the whole number should not be formatted.
-  var state = 1;
+  let states = ['newWord', 'number', 'other'];
+  let decimalSeparator = '.';
+
+  var state = 'newWord';
   var startIndex = -1;
-  for (var i = 0; i < input.length; i++) {
-    if (isDigit(input[i]) && state === 1) {
+  var decimalSeparatorFound = false;
+  for(var i = 0; i < input.length; i++) {
+    let currentChar = input[i];
+    console.log("currentChar:" + currentChar);
+    if (state === 'newWord' && isDigit(currentChar)) {
+      state = 'number';
       startIndex = i;
-      state = 2;
-    }
-    else if ('.' === input[i] && state === 2 && (i + 1 < input.length) && isDigit(input[i + 1])) {
-      state = 3;
-    } else if ('-' === input[i] && state === 2 && (i + 1 < input.length) && isDigit(input[i + 1])) {
-      state = 4;
-    } else if (!isDigit(input[i])) {
-      if (state === 2 || state === 3) {
+      console.log("State = Number");
+    } else if (state === 'number' && currentChar === decimalSeparator) {
+      if (decimalSeparatorFound) {
+        // Means that current string is not a number
+        state = 'other'
+        console.log("State = Other");
+      } else {
+        decimalSeparatorFound = true;
+      }
+    } else if (isWordSeparating(currentChar) ) {
+      console.log("Word separating: " + currentChar + " state: " + state);
+      if (state === 'number') {
         var foundNumber = input.slice(startIndex, i);
         foundNumber = formatNumber(foundNumber);
         input = input.slice(0, startIndex) + foundNumber + input.slice(i);
       }
-      state = 1;
-      startIndex = -1;
+      state = 'newWord';
+    } else if(!isWordSeparating(currentChar) && !isDigit(currentChar)) {
+      console.log("state = other");
+      state = 'other';
     }
   }
 
-  if (state === 2 || state === 3) {
-    foundNumber = input.slice(startIndex, i);
+  if (state === 'number') {
+    var foundNumber = input.slice(startIndex, i);
     foundNumber = formatNumber(foundNumber);
     input = input.slice(0, startIndex) + foundNumber + input.slice(i);
   }
 
-  return input;
+  return input
 }
 
 function formatNumber(numberString) {
@@ -93,6 +137,7 @@ function formatWithLocale(numberString){
   const number = Number.parseFloat(numberString,20);
   return number.toLocaleString(locale);
 }
+
 
 function formatNumberAsHumanReadable(numberString) {
   // known SI prefixes, multiple of 3
@@ -129,13 +174,6 @@ function formatNumberAsHumanReadable(numberString) {
   }
   
 }
-
-
-
-
-
-
-
 
 
 export default Formatter;
