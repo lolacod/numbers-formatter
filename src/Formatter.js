@@ -11,13 +11,13 @@ import InputGroup from 'react-bootstrap/InputGroup';
 class Formatter extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { formattedText: "" };
+    this.state = { formattedText: "", formatting: "humanReadable" };
     this.handleInputTextChange = this.handleInputTextChange.bind(this);
   }
 
   handleInputTextChange(event) {
     var formatted = formatText(event.target.value);
-    this.setState({ formattedText: formatted });
+    this.setState(state => {return { formattedText: formatted, formatting: state.formatting }});
   }
   
   render() {
@@ -36,7 +36,7 @@ class Formatter extends React.Component {
             </div>
           </Col>
           <Col>
-            <ToggleButtonGroup name="formatter" type="radio" vertical="true" size="sm">
+            <ToggleButtonGroup name="formatter" type="radio" vertical="true" size="sm" value={this.state.formatting}>
             <ToggleButton type="radio" name="formatter" value="humanReadable" variant="outline-success">
               Human Readable
             </ToggleButton>
@@ -76,6 +76,7 @@ function formatText(input) {
   var state = 'newWord';
   var startIndex = -1;
   var decimalSeparatorFound = false;
+  var fomattedText = "";
   for(var i = 0; i < input.length; i++) {
     let currentChar = input[i];
     console.log("currentChar:" + currentChar);
@@ -94,9 +95,11 @@ function formatText(input) {
     } else if (isWordSeparating(currentChar) ) {
       console.log("Word separating: " + currentChar + " state: " + state);
       if (state === 'number') {
-        var foundNumber = input.slice(startIndex, i);
-        foundNumber = formatNumber(foundNumber);
-        input = input.slice(0, startIndex) + foundNumber + input.slice(i);
+        console.log("Found number: " + input.slice(startIndex, i) + " startIndex: " + startIndex + " i: " + i);
+        let foundNumber = input.slice(startIndex, i);
+        let formatteNumber = formatNumber(foundNumber);
+        input = input.slice(0, startIndex) + formatteNumber + input.slice(i);
+        i = i + (formatteNumber.length - foundNumber.length);
       }
       state = 'newWord';
     } else if(!isWordSeparating(currentChar) && !isDigit(currentChar)) {
@@ -106,9 +109,10 @@ function formatText(input) {
   }
 
   if (state === 'number') {
-    var foundNumber = input.slice(startIndex, i);
-    foundNumber = formatNumber(foundNumber);
-    input = input.slice(0, startIndex) + foundNumber + input.slice(i);
+    let foundNumber = input.slice(startIndex, i);
+    let formatteNumber = formatNumber(foundNumber);
+    input = input.slice(0, startIndex) + formatteNumber + input.slice(i);
+    i = i + (formatteNumber.length - foundNumber.length);
   }
 
   return input
