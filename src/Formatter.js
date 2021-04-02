@@ -11,13 +11,33 @@ import InputGroup from 'react-bootstrap/InputGroup';
 class Formatter extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { formattedText: "", formatting: "humanReadable" };
+    this.state = {inputText:"", formattedText: "", formatting: "humanReadable" };
     this.handleInputTextChange = this.handleInputTextChange.bind(this);
+    this.handleFormattingChange = this.handleFormattingChange.bind(this);
   }
 
   handleInputTextChange(event) {
-    var formatted = formatText(event.target.value);
-    this.setState(state => {return { formattedText: formatted, formatting: state.formatting }});
+    this.setState(state => {
+      let formatting = this.getNumberFormatter(this.state.formatting);
+      var formattedText = formatText(event.target.value, formatting);
+      return {inputText:event.target.value, formattedText: formattedText, formatting: state.formatting };
+    });
+  }
+
+  handleFormattingChange(event) {
+    this.setState(state => {
+      let formatting = this.getNumberFormatter(event.target.value);
+      var formattedText = formatText(state.inputText, formatting);   
+      return {formattedText: formattedText, formatting:event.target.value}})
+  }
+
+  getNumberFormatter(formattingType) {
+    const formattingDictionary = {
+      "humanReadable": formatNumberAsHumanReadable,
+      "wCommas": formatNumberWithCommas
+    }
+
+    return formattingDictionary[formattingType];
   }
   
   render() {
@@ -30,18 +50,17 @@ class Formatter extends React.Component {
         </Row>
         <Row>
           <Col>
-            
             <div>
               <textarea rows="15" cols="60" onChange={this.handleInputTextChange} />
             </div>
           </Col>
           <Col>
             <ToggleButtonGroup name="formatter" type="radio" vertical="true" size="sm" value={this.state.formatting}>
-            <ToggleButton type="radio" name="formatter" value="humanReadable" variant="outline-success">
+            <ToggleButton type="radio" name="formatter" value="humanReadable" variant="outline-success" onChange={this.handleFormattingChange}>
               Human Readable
             </ToggleButton>
             <br/>
-            <ToggleButton type="radio" name="formatter" value="wCommas" variant="outline-success">
+            <ToggleButton type="radio" name="formatter" value="wCommas" variant="outline-success" onChange={this.handleFormattingChange}>
               With Commas
             </ToggleButton>
           </ToggleButtonGroup> 
@@ -50,7 +69,7 @@ class Formatter extends React.Component {
         <br/>
         <label>Same text with formatted numbers:</label>
         <div>
-          <textarea rows="15" cols="60" value={this.state.formattedText} />
+          <textarea rows="15" cols="60" value={this.state.formattedText} readOnly />
         </div>
       </Container>
     )
@@ -69,48 +88,41 @@ function isWordSeparating(char) {
 }
 
 
-function formatText(input) {
+function formatText(input, numberFormatter) {
   let states = ['newWord', 'number', 'other'];
   let decimalSeparator = '.';
 
   var state = 'newWord';
   var startIndex = -1;
   var decimalSeparatorFound = false;
-  var fomattedText = "";
   for(var i = 0; i < input.length; i++) {
     let currentChar = input[i];
-    console.log("currentChar:" + currentChar);
     if (state === 'newWord' && isDigit(currentChar)) {
       state = 'number';
       startIndex = i;
-      console.log("State = Number");
     } else if (state === 'number' && currentChar === decimalSeparator) {
       if (decimalSeparatorFound) {
         // Means that current string is not a number
         state = 'other'
-        console.log("State = Other");
       } else {
         decimalSeparatorFound = true;
       }
     } else if (isWordSeparating(currentChar) ) {
-      console.log("Word separating: " + currentChar + " state: " + state);
       if (state === 'number') {
-        console.log("Found number: " + input.slice(startIndex, i) + " startIndex: " + startIndex + " i: " + i);
         let foundNumber = input.slice(startIndex, i);
-        let formatteNumber = formatNumber(foundNumber);
+        let formatteNumber = numberFormatter(foundNumber);
         input = input.slice(0, startIndex) + formatteNumber + input.slice(i);
         i = i + (formatteNumber.length - foundNumber.length);
       }
       state = 'newWord';
     } else if(!isWordSeparating(currentChar) && !isDigit(currentChar)) {
-      console.log("state = other");
       state = 'other';
     }
   }
 
   if (state === 'number') {
     let foundNumber = input.slice(startIndex, i);
-    let formatteNumber = formatNumber(foundNumber);
+    let formatteNumber = numberFormatter(foundNumber);
     input = input.slice(0, startIndex) + formatteNumber + input.slice(i);
     i = i + (formatteNumber.length - foundNumber.length);
   }
