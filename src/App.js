@@ -11,7 +11,7 @@ function App() {
     <Container>
         <Row className="justify-content-center">
           <Col>
-            <h1>Format Text Numbers</h1>
+            <h1>Human Readable Numbers</h1>
           </Col>
         </Row>
         <Row>
