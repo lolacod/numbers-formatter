@@ -3,9 +3,7 @@ import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import ToggleButtonGroup from 'react-bootstrap/ToggleButtonGroup';
-import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import ToggleButton from 'react-bootstrap/ToggleButton';
-import InputGroup from 'react-bootstrap/InputGroup';
 
 
 class Formatter extends React.Component {
@@ -20,6 +18,7 @@ class Formatter extends React.Component {
     this.setState(state => {
       let formatting = this.getNumberFormatter(this.state.formatting);
       var formattedText = formatText(event.target.value, formatting);
+      // var formattedText = formatCSV(event.target.value, formatting, [1], ',');
       return {inputText:event.target.value, formattedText: formattedText, formatting: state.formatting };
     });
   }
@@ -59,7 +58,6 @@ class Formatter extends React.Component {
             <ToggleButton type="radio" name="formatter" value="humanReadable" variant="outline-success" onChange={this.handleFormattingChange}>
               Human Readable
             </ToggleButton>
-            <br/>
             <ToggleButton type="radio" name="formatter" value="wCommas" variant="outline-success" onChange={this.handleFormattingChange}>
               With Commas
             </ToggleButton>
@@ -83,13 +81,11 @@ function isDigit(char) {
 }
 
 function isWordSeparating(char) {
-  const separators = [' ', '\n']
+  const separators = [' ', '\n', ','];
   return separators.includes(char);
 }
 
-
 function formatText(input, numberFormatter) {
-  let states = ['newWord', 'number', 'other'];
   let decimalSeparator = '.';
 
   var state = 'newWord';
@@ -97,6 +93,7 @@ function formatText(input, numberFormatter) {
   var decimalSeparatorFound = false;
   for(var i = 0; i < input.length; i++) {
     let currentChar = input[i];
+    console.log(`state:${state}; currentChar:${currentChar}; decimalSeparator:${decimalSeparatorFound}`);
     if (state === 'newWord' && isDigit(currentChar)) {
       state = 'number';
       startIndex = i;
@@ -110,9 +107,10 @@ function formatText(input, numberFormatter) {
     } else if (isWordSeparating(currentChar) ) {
       if (state === 'number') {
         let foundNumber = input.slice(startIndex, i);
-        let formatteNumber = numberFormatter(foundNumber);
-        input = input.slice(0, startIndex) + formatteNumber + input.slice(i);
-        i = i + (formatteNumber.length - foundNumber.length);
+        let formattedNumber = numberFormatter(foundNumber);
+        input = input.slice(0, startIndex) + formattedNumber + input.slice(i);
+        i = i + (formattedNumber.length - foundNumber.length);
+        decimalSeparatorFound = false;
       }
       state = 'newWord';
     } else if(!isWordSeparating(currentChar) && !isDigit(currentChar)) {
@@ -122,16 +120,50 @@ function formatText(input, numberFormatter) {
 
   if (state === 'number') {
     let foundNumber = input.slice(startIndex, i);
-    let formatteNumber = numberFormatter(foundNumber);
-    input = input.slice(0, startIndex) + formatteNumber + input.slice(i);
-    i = i + (formatteNumber.length - foundNumber.length);
+    let formattedNumber = numberFormatter(foundNumber);
+    input = input.slice(0, startIndex) + formattedNumber + input.slice(i);
+    i = i + (formattedNumber.length - foundNumber.length);
   }
 
   return input
 }
 
-function formatNumber(numberString) {
-  return formatNumberAsHumanReadable(numberString);
+function formatCSV(input, numberFormatter, columnsToFormat, delimiter) {
+  var currentColumn = 0;
+  var columnStart = 0;
+  var i=0;
+  var processedResult = "";
+  var intermediateResult = "";
+  var formattedColumn = "";
+  while(i < input.length && input.length < 50) {
+    let currentChar = input[i];
+    if (columnsToFormat.includes(currentColumn)) {
+      console.log(`Going to format column ${currentColumn} starts at ${columnStart}, current i:${i}. input length:${input.length} Text to format:${input.slice(columnStart, i+1)}`);
+      formattedColumn = formatText(input.slice(columnStart, i+1), numberFormatter);
+      console.log(`Finished to format column. Formatted text: ${formattedColumn}, length: ${formattedColumn.length}`);
+      console.log(`First part: ${input.slice(0, columnStart)}; formatted:${formattedColumn}; remaining:${input.slice(i+1)}`);
+      intermediateResult = formattedColumn;
+    } else {
+      intermediateResult += currentChar;
+    }
+    
+    if (currentChar === delimiter || currentChar === '\n') {
+      if (currentChar === delimiter) {
+        currentColumn++;
+      } else {
+        currentColumn = 0;
+      }
+      
+      columnStart = i+1;
+      processedResult += intermediateResult;
+      intermediateResult = "";
+      formattedColumn = "";
+    }
+    console.log(`currentColumn:${currentColumn}; i:${i}`);
+    i++;
+  }
+
+  return processedResult + intermediateResult;
 }
 
 function formatNumberWithCommas(numberString) {
@@ -154,7 +186,6 @@ function formatWithLocale(numberString){
   return number.toLocaleString(locale);
 }
 
-
 function formatNumberAsHumanReadable(numberString) {
   // known SI prefixes, multiple of 3
   // Taken from: https://github.com/cerberus-ab/human-readable-numbers/blob/master/src/index.js
@@ -174,7 +205,7 @@ function formatNumberAsHumanReadable(numberString) {
   if (number === NaN) {
     return null;
   }
-  if (number == 0) {
+  if (number === 0) {
     return 0;  
   }
 
