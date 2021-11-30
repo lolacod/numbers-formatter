@@ -4,21 +4,32 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import ToggleButtonGroup from 'react-bootstrap/ToggleButtonGroup';
 import ToggleButton from 'react-bootstrap/ToggleButton';
+import Form from 'react-bootstrap/Form';
+
 
 
 class Formatter extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {inputText:"", formattedText: "", formatting: "humanReadable" };
+    this.state = {inputText:"", formattedText: "", formatting: "humanReadable", tableMode:false, delimiter:"", columns:"", errors:{} };
     this.handleInputTextChange = this.handleInputTextChange.bind(this);
     this.handleFormattingChange = this.handleFormattingChange.bind(this);
+    this.handleDelimiterChange = this.handleDelimiterChange.bind(this);
+    this.handleColumnsListChange = this.handleColumnsListChange.bind(this);
   }
 
   handleInputTextChange(event) {
     this.setState(state => {
       let formatting = this.getNumberFormatter(this.state.formatting);
-      var formattedText = formatText(event.target.value, formatting);
-      // var formattedText = formatCSV(event.target.value, formatting, [1], ',');
+      var formattedText = "";
+      if (this.state.tableMode) {
+        let columns = this.state.columns.split(',').map(x => parseInt(x));
+        formattedText = formatDelimitedTable(event.target.value, formatting, columns, this.state.delimiter);
+      } else {
+        formattedText = formatText(event.target.value, formatting);
+      }
+      
+      
       return {inputText:event.target.value, formattedText: formattedText, formatting: state.formatting };
     });
   }
@@ -26,8 +37,48 @@ class Formatter extends React.Component {
   handleFormattingChange(event) {
     this.setState(state => {
       let formatting = this.getNumberFormatter(event.target.value);
-      var formattedText = formatText(state.inputText, formatting);   
-      return {formattedText: formattedText, formatting:event.target.value}})
+      var formattedText = formatText(state.inputText, formatting);
+      return { formattedText: formattedText, formatting:event.target.value }});
+  }
+
+  handleDelimiterChange(event) {
+    if (event.target === undefined || this.state.tableMode === false) {
+      return this.state;
+    }
+
+    if (event.target.value && event.target.value.length > 1) {
+      this.setState(state => {
+        return {...state, "errors":{...state.errors, "delimiter":"Delimiter must be only 1 character"}}
+      });
+    } else {
+      this.setState(state => {
+        let delimiter = event.target.value;
+        let formattedText = this.getFormattedText(state.inputText, this.state.formatting, 
+          state.tableMode, state.columns, delimiter);
+        
+        return {...state, formattedText:formattedText, "delimiter":delimiter}
+      });
+    }
+  }
+
+  handleColumnsListChange(event) {
+    let validChars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ','];
+    let value = event.target.value;
+    for (var i = 0; i < value.length; i++) {
+      if (! validChars.includes(value.charAt(i))) {
+        this.setState(state => {
+          return {...state, "errors":{...this.state.errors, "columns":"Must include only digits or ','"}};
+        });
+      } else {
+        let columns = event.target.value;
+        this.setState( state => {
+          let formattedText = this.getFormattedText(state.inputText, this.state.formatting, 
+            state.tableMode, columns, state.delimiter);
+          return {...state,formattedText:formattedText, "columns":columns, "errors":{...this.state.errors, "columns":""}};
+          
+        });
+      }
+    }
   }
 
   getNumberFormatter(formattingType) {
@@ -37,6 +88,19 @@ class Formatter extends React.Component {
     }
 
     return formattingDictionary[formattingType];
+  }
+
+  getFormattedText(text, formatting, tableMode, columnsString, delimiter) {
+    let formatter = this.getNumberFormatter(formatting);
+    var formattedText = "";
+    if (tableMode) {
+      let columns = columnsString.split(',').map(x => parseInt(x));
+      formattedText = formatDelimitedTable(text, formatter, columns, delimiter);
+    } else {
+      formattedText = formatText(text, formatter);
+    }
+
+    return formattedText;
   }
   
   render() {
@@ -50,20 +114,77 @@ class Formatter extends React.Component {
         <Row>
           <Col>
             <div>
-              <textarea rows="15" cols="60" onChange={this.handleInputTextChange} />
+              <textarea rows="15" cols="60" onChange={this.handleInputTextChange} wrap="soft"/>
             </div>
           </Col>
           <Col>
-            <ToggleButtonGroup name="formatter" type="radio" vertical="true" size="sm" value={this.state.formatting}>
-            <ToggleButton type="radio" name="formatter" value="humanReadable" variant="outline-success" onChange={this.handleFormattingChange}>
-              Human Readable
+            <Row>
+              <ToggleButtonGroup name="formatter" type="radio" vertical="true" size="sm" value={this.state.formatting}>
+              <ToggleButton type="radio" name="formatter" value="humanReadable" variant="outline-success" onChange={this.handleFormattingChange}>
+                Human Readable
+              </ToggleButton>
+              <ToggleButton type="radio" name="formatter" value="wCommas" variant="outline-success" onChange={this.handleFormattingChange}>
+                With Commas
+              </ToggleButton>
+            </ToggleButtonGroup> 
+            </Row>
+            <Row>
+              <br/>
+            </Row>
+            <Row>
+              <ToggleButton
+                className="mb-2"
+                id="toggle-check"
+                type="checkbox"
+                variant="outline-primary"
+                checked={this.state.tableMode}
+                value="1"
+                onChange={e=> this.setState({ ...this.state, tableMode: e.currentTarget.checked})}
+              >
+               {' '} Table Mode
             </ToggleButton>
-            <ToggleButton type="radio" name="formatter" value="wCommas" variant="outline-success" onChange={this.handleFormattingChange}>
-              With Commas
-            </ToggleButton>
-          </ToggleButtonGroup> 
+            </Row>
+            <Row>
+              <div>
+                <br/>
+              </div>
+            </Row>
+            <Row>
+              <Form.Group as={Row} >
+                <Form.Label column sm={3}>
+                  Delimiter
+                </Form.Label>
+                <Col sm={8}>
+                  <Form.Control 
+                    type="delimiter" 
+                    placeholder="1 Char" 
+                    onChange={this.handleDelimiterChange}
+                    value={this.state.delimiter}
+                    disabled={!this.state.tableMode}
+                  />
+                </Col>
+              </Form.Group>
+            </Row>
+            <Row>
+              <Form.Group as={Row} >
+                <Form.Label column sm={3}>
+                  Columns
+                </Form.Label>
+                <Col sm={8}>
+                  <Form.Control type="" placeholder="Columns to format" 
+                    isInvalid={!!this.state.errors.columns}
+                    onChange={this.handleColumnsListChange}
+                    disabled={!this.state.tableMode}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {this.state.errors.columns}
+                  </Form.Control.Feedback>
+                </Col>
+              </Form.Group>
+            </Row>            
           </Col>
         </Row>
+          
         <br/>
         <label>Same text with formatted numbers:</label>
         <div>
@@ -93,7 +214,6 @@ function formatText(input, numberFormatter) {
   var decimalSeparatorFound = false;
   for(var i = 0; i < input.length; i++) {
     let currentChar = input[i];
-    console.log(`state:${state}; currentChar:${currentChar}; decimalSeparator:${decimalSeparatorFound}`);
     if (state === 'newWord' && isDigit(currentChar)) {
       state = 'number';
       startIndex = i;
@@ -127,21 +247,25 @@ function formatText(input, numberFormatter) {
 
   return input
 }
-
-function formatCSV(input, numberFormatter, columnsToFormat, delimiter) {
+/**
+ * 
+ * @param {String} input Text to identify number, and transform them to human readable format
+ * @param {*} numberFormatter Formatter to use when transforming the numbers to human readable format.
+ * @param {*} columnsToFormat Columns that should be transformed.
+ * @param {*} delimiter The delimiter that is used to identify that each column.
+ * @returns 
+ */
+function formatDelimitedTable(input, numberFormatter, columnsToFormat, delimiter) {
   var currentColumn = 0;
   var columnStart = 0;
   var i=0;
   var processedResult = "";
   var intermediateResult = "";
   var formattedColumn = "";
-  while(i < input.length && input.length < 50) {
+  while(i < input.length) {
     let currentChar = input[i];
-    if (columnsToFormat.includes(currentColumn)) {
-      console.log(`Going to format column ${currentColumn} starts at ${columnStart}, current i:${i}. input length:${input.length} Text to format:${input.slice(columnStart, i+1)}`);
+    if (columnsToFormat.includes(currentColumn) && currentChar !== delimiter) {
       formattedColumn = formatText(input.slice(columnStart, i+1), numberFormatter);
-      console.log(`Finished to format column. Formatted text: ${formattedColumn}, length: ${formattedColumn.length}`);
-      console.log(`First part: ${input.slice(0, columnStart)}; formatted:${formattedColumn}; remaining:${input.slice(i+1)}`);
       intermediateResult = formattedColumn;
     } else {
       intermediateResult += currentChar;
@@ -159,7 +283,6 @@ function formatCSV(input, numberFormatter, columnsToFormat, delimiter) {
       intermediateResult = "";
       formattedColumn = "";
     }
-    console.log(`currentColumn:${currentColumn}; i:${i}`);
     i++;
   }
 
