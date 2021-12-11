@@ -6,7 +6,17 @@
 # limitations under the License.
 
 # [START gae_quickstart_yaml]
-runtime: nodejs14
+env: standard
+runtime: nodejs16
+handlers:
+# Serve all static files with url ending with a file extension
+- url: /(.*\..+)$
+  static_files: build/\1
+  upload: build/(.*\..+)$
+# Catch all handler to index.html
+- url: /.*
+  static_files: build/index.html
+  upload: build/index.html
 # [END gae_quickstart_yaml]
 
 # Automatic scaling configuration parameters wiki:
