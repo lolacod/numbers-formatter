@@ -6,9 +6,8 @@ import ToggleButtonGroup from 'react-bootstrap/ToggleButtonGroup';
 import ToggleButton from 'react-bootstrap/ToggleButton';
 import Form from 'react-bootstrap/Form';
 
-
-
 class Formatter extends React.Component {
+
   constructor(props) {
     super(props);
     this.state = {inputText:"", formattedText: "", formatting: "humanReadable", tableMode:false, delimiter:"", columns:"", errors:{} };
@@ -195,10 +194,10 @@ class Formatter extends React.Component {
   }
 }
 
+let digits = new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
+
 function isDigit(char) {
-  // Check if digit
-  const digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  return digits.includes(char);
+  return digits.has(char);
 }
 
 function isWordSeparating(char) {
@@ -208,37 +207,46 @@ function isWordSeparating(char) {
 
 function formatText(input, numberFormatter) {
   let decimalSeparator = '.';
+  let negativeNumberChar = '-';
+  // possible states: newWord, number, other, negativeNumber
+  let stateNewWord = 0;
+  let stateNumber = 1;
+  let stateNegativeNumber = 2;
+  let stateOther = 3;
 
-  var state = 'newWord';
+  var state = stateNewWord;
   var startIndex = -1;
   var decimalSeparatorFound = false;
   for(var i = 0; i < input.length; i++) {
     let currentChar = input[i];
-    if (state === 'newWord' && isDigit(currentChar)) {
-      state = 'number';
+    
+    if ((state === stateNewWord || state === stateNegativeNumber) && isDigit(currentChar)) {
+      state = stateNumber;
       startIndex = i;
-    } else if (state === 'number' && currentChar === decimalSeparator) {
+    } else if (state === stateNumber && currentChar === decimalSeparator) {
       if (decimalSeparatorFound) {
         // Means that current string is not a number
-        state = 'other'
+        state = stateOther
       } else {
         decimalSeparatorFound = true;
       }
+    } else if (state === stateNewWord && currentChar === negativeNumberChar) {
+      state = stateNegativeNumber
     } else if (isWordSeparating(currentChar) ) {
-      if (state === 'number') {
+      if (state === stateNumber) {
         let foundNumber = input.slice(startIndex, i);
         let formattedNumber = numberFormatter(foundNumber);
         input = input.slice(0, startIndex) + formattedNumber + input.slice(i);
         i = i + (formattedNumber.length - foundNumber.length);
         decimalSeparatorFound = false;
       }
-      state = 'newWord';
+      state = stateNewWord;
     } else if(!isWordSeparating(currentChar) && !isDigit(currentChar)) {
-      state = 'other';
+      state = stateOther;
     }
   }
 
-  if (state === 'number') {
+  if (state === stateNumber) {
     let foundNumber = input.slice(startIndex, i);
     let formattedNumber = numberFormatter(foundNumber);
     input = input.slice(0, startIndex) + formattedNumber + input.slice(i);
@@ -303,12 +311,6 @@ function formatNumberWithCommas(numberString) {
   return numberString + decimalValue;  
 }
 
-function formatWithLocale(numberString){
-  const locale = "en-US";
-  const number = Number.parseFloat(numberString,20);
-  return number.toLocaleString(locale);
-}
-
 function formatNumberAsHumanReadable(numberString) {
   // known SI prefixes, multiple of 3
   // Taken from: https://github.com/cerberus-ab/human-readable-numbers/blob/master/src/index.js
@@ -325,7 +327,7 @@ function formatNumberAsHumanReadable(numberString) {
   };
 
   let number = Number(numberString);
-  if (number === NaN) {
+  if (isNaN(number)) {
     return null;
   }
   if (number === 0) {
