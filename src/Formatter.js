@@ -132,7 +132,9 @@ class Formatter extends React.Component {
             </ToggleButtonGroup> 
             </Row>
             <Row>
-              <br/>
+              <div>
+                <br/>
+              </div>
             </Row>
             <Row>
               <ToggleButton
