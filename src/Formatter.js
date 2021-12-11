@@ -24,7 +24,7 @@ class Formatter extends React.Component {
       if (this.state.tableMode) {
         let columns = this.state.columns.split(',').map(x => parseInt(x));
         formattedText = formatDelimitedTable(event.target.value, formatting, columns, this.state.delimiter);
-      } else {
+      } else { 
         formattedText = formatText(event.target.value, formatting);
       }
       
@@ -44,14 +44,17 @@ class Formatter extends React.Component {
     if (event.target === undefined || this.state.tableMode === false) {
       return this.state;
     }
-
-    if (event.target.value && event.target.value.length > 1) {
+    
+    if (event.target.value && event.target.value !== '\\' && event.target.value !== '\\t' && event.target.value.length > 1) {
       this.setState(state => {
         return {...state, "errors":{...state.errors, "delimiter":"Delimiter must be only 1 character"}}
       });
     } else {
       this.setState(state => {
         let delimiter = event.target.value;
+        if (delimiter === '\\t') {
+          delimiter = '\t';
+        }
         let formattedText = this.getFormattedText(state.inputText, this.state.formatting, 
           state.tableMode, state.columns, delimiter);
         
