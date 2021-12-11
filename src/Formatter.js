@@ -5,6 +5,7 @@ import Col from 'react-bootstrap/Col';
 import ToggleButtonGroup from 'react-bootstrap/ToggleButtonGroup';
 import ToggleButton from 'react-bootstrap/ToggleButton';
 import Form from 'react-bootstrap/Form';
+import * as numberFormatting from './formatting/numberFormatter';
 
 class Formatter extends React.Component {
 
@@ -23,9 +24,9 @@ class Formatter extends React.Component {
       var formattedText = "";
       if (this.state.tableMode) {
         let columns = this.state.columns.split(',').map(x => parseInt(x));
-        formattedText = formatDelimitedTable(event.target.value, formatting, columns, this.state.delimiter);
+        formattedText = numberFormatting.formatDelimitedTable(event.target.value, formatting, columns, this.state.delimiter);
       } else { 
-        formattedText = formatText(event.target.value, formatting);
+        formattedText = numberFormatting.formatText(event.target.value, formatting);
       }
       
       
@@ -36,7 +37,7 @@ class Formatter extends React.Component {
   handleFormattingChange(event) {
     this.setState(state => {
       let formatting = this.getNumberFormatter(event.target.value);
-      var formattedText = formatText(state.inputText, formatting);
+      var formattedText = numberFormatting.formatText(state.inputText, formatting);
       return { formattedText: formattedText, formatting:event.target.value }});
   }
 
@@ -85,8 +86,8 @@ class Formatter extends React.Component {
 
   getNumberFormatter(formattingType) {
     const formattingDictionary = {
-      "humanReadable": formatNumberAsHumanReadable,
-      "wCommas": formatNumberWithCommas
+      "humanReadable": numberFormatting.formatNumberAsHumanReadable,
+      "wCommas": numberFormatting.formatNumberWithCommas
     }
 
     return formattingDictionary[formattingType];
@@ -97,9 +98,9 @@ class Formatter extends React.Component {
     var formattedText = "";
     if (tableMode) {
       let columns = columnsString.split(',').map(x => parseInt(x));
-      formattedText = formatDelimitedTable(text, formatter, columns, delimiter);
+      formattedText = numberFormatting.formatDelimitedTable(text, formatter, columns, delimiter);
     } else {
-      formattedText = formatText(text, formatter);
+      formattedText = numberFormatting.formatText(text, formatter);
     }
 
     return formattedText;
@@ -159,11 +160,14 @@ class Formatter extends React.Component {
                 <Col sm={8}>
                   <Form.Control 
                     type="delimiter" 
-                    placeholder="1 Char" 
+                    placeholder="1 Char or \t for tab" 
                     onChange={this.handleDelimiterChange}
                     value={this.state.delimiter}
                     disabled={!this.state.tableMode}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {this.state.errors.delimiter}
+                  </Form.Control.Feedback>
                 </Col>
               </Form.Group>
             </Row>
@@ -173,7 +177,7 @@ class Formatter extends React.Component {
                   Columns
                 </Form.Label>
                 <Col sm={8}>
-                  <Form.Control type="" placeholder="Columns to format" 
+                  <Form.Control type="" placeholder="0,1,..." 
                     isInvalid={!!this.state.errors.columns}
                     onChange={this.handleColumnsListChange}
                     disabled={!this.state.tableMode}
@@ -196,159 +200,5 @@ class Formatter extends React.Component {
     )
   }
 }
-
-let digits = new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
-
-function isDigit(char) {
-  return digits.has(char);
-}
-
-function isWordSeparating(char) {
-  const separators = [' ', '\n', ','];
-  return separators.includes(char);
-}
-
-function formatText(input, numberFormatter) {
-  let decimalSeparator = '.';
-  let negativeNumberChar = '-';
-  // possible states: newWord, number, other, negativeNumber
-  let stateNewWord = 0;
-  let stateNumber = 1;
-  let stateNegativeNumber = 2;
-  let stateOther = 3;
-
-  var state = stateNewWord;
-  var startIndex = -1;
-  var decimalSeparatorFound = false;
-  for(var i = 0; i < input.length; i++) {
-    let currentChar = input[i];
-    
-    if ((state === stateNewWord || state === stateNegativeNumber) && isDigit(currentChar)) {
-      state = stateNumber;
-      startIndex = i;
-    } else if (state === stateNumber && currentChar === decimalSeparator) {
-      if (decimalSeparatorFound) {
-        // Means that current string is not a number
-        state = stateOther
-      } else {
-        decimalSeparatorFound = true;
-      }
-    } else if (state === stateNewWord && currentChar === negativeNumberChar) {
-      state = stateNegativeNumber
-    } else if (isWordSeparating(currentChar) ) {
-      if (state === stateNumber) {
-        let foundNumber = input.slice(startIndex, i);
-        let formattedNumber = numberFormatter(foundNumber);
-        input = input.slice(0, startIndex) + formattedNumber + input.slice(i);
-        i = i + (formattedNumber.length - foundNumber.length);
-        decimalSeparatorFound = false;
-      }
-      state = stateNewWord;
-    } else if(!isWordSeparating(currentChar) && !isDigit(currentChar)) {
-      state = stateOther;
-    }
-  }
-
-  if (state === stateNumber) {
-    let foundNumber = input.slice(startIndex, i);
-    let formattedNumber = numberFormatter(foundNumber);
-    input = input.slice(0, startIndex) + formattedNumber + input.slice(i);
-    i = i + (formattedNumber.length - foundNumber.length);
-  }
-
-  return input
-}
-/**
- * 
- * @param {String} input Text to identify number, and transform them to human readable format
- * @param {*} numberFormatter Formatter to use when transforming the numbers to human readable format.
- * @param {*} columnsToFormat Columns that should be transformed.
- * @param {*} delimiter The delimiter that is used to identify that each column.
- * @returns 
- */
-function formatDelimitedTable(input, numberFormatter, columnsToFormat, delimiter) {
-  var currentColumn = 0;
-  var columnStart = 0;
-  var i=0;
-  var processedResult = "";
-  var intermediateResult = "";
-  var formattedColumn = "";
-  while(i < input.length) {
-    let currentChar = input[i];
-    if (columnsToFormat.includes(currentColumn) && currentChar !== delimiter) {
-      formattedColumn = formatText(input.slice(columnStart, i+1), numberFormatter);
-      intermediateResult = formattedColumn;
-    } else {
-      intermediateResult += currentChar;
-    }
-    
-    if (currentChar === delimiter || currentChar === '\n') {
-      if (currentChar === delimiter) {
-        currentColumn++;
-      } else {
-        currentColumn = 0;
-      }
-      
-      columnStart = i+1;
-      processedResult += intermediateResult;
-      intermediateResult = "";
-      formattedColumn = "";
-    }
-    i++;
-  }
-
-  return processedResult + intermediateResult;
-}
-
-function formatNumberWithCommas(numberString) {
-  let decimalIndex = numberString.indexOf('.');
-  var decimalValue = decimalIndex > -1 ? numberString.slice(decimalIndex) : '';
-  numberString = decimalIndex > -1 ? numberString.slice(0, decimalIndex) : numberString;
-  var commas = Math.floor(numberString.length / 3.0);
-  commas = commas * 3 === numberString.length ? commas - 1 : commas;
-  for (var i = 0; i < commas; i++) {
-    let commaIndex = numberString.length - ((i + 1) * 3) - i;
-    numberString = numberString.slice(0, commaIndex) + ',' + numberString.slice(commaIndex);
-  }
-
-  return numberString + decimalValue;  
-}
-
-function formatNumberAsHumanReadable(numberString) {
-  // known SI prefixes, multiple of 3
-  // Taken from: https://github.com/cerberus-ab/human-readable-numbers/blob/master/src/index.js
-  var PREFIXES = {
-    '24': 'Y',
-    '21': 'Z',
-    '18': 'E',
-    '15': 'P',
-    '12': 'T',
-    '9': 'G',
-    '6': 'M',
-    '3': 'K',
-    '0': '',
-  };
-
-  let number = Number(numberString);
-  if (isNaN(number)) {
-    return null;
-  }
-  if (number === 0) {
-    return 0;  
-  }
-
-  var exponent = Math.floor(Math.log10(number));
-  exponent = Math.min(3 * Math.floor(exponent / 3), 24)
-  
-  const newNumber = number / Math.pow(10, exponent);
-  if (Number.isInteger(newNumber)) {
-    return newNumber + PREFIXES[exponent];  
-  }
-  else {
-    return newNumber.toFixed(2) + PREFIXES[exponent];
-  }
-  
-}
-
 
 export default Formatter;
